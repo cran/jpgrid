@@ -6,7 +6,9 @@
 \alias{jpgrid-package}
 \title{Functions for the Grid Square Codes in Japan}
 \description{
-Provides functions for grid square codes in Japan (<https://www.stat.go.jp/english/data/mesh/index.html>). Generates the grid square codes from longitude/latitude, geometries, and the grid square codes of different scales, and vice versa.
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
+Provides functions for grid square codes in Japan (\url{https://www.stat.go.jp/english/data/mesh/index.html}). Generates the grid square codes from longitude/latitude, geometries, and the grid square codes of different scales, and vice versa.
 }
 \seealso{
 \url{https://www.stat.go.jp/english/data/mesh/index.html}

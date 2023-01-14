@@ -2,12 +2,15 @@
 #'
 #' @param geometry A `sfc` vector.
 #' @inheritParams size
+#' @param options Options vector for GDALRasterize passed on to
+#' [stars::st_rasterize()].
 #' @param ... Passed on to [stars::st_rasterize()].
 #'
 #' @return A list of `grid` vectors.
 #'
 #' @export
-geometry_to_grid <- function(geometry, size, ...) {
+geometry_to_grid <- function(geometry, size,
+                             options = "ALL_TOUCHED=TRUE", ...) {
   if (!inherits(geometry, "sfc")) {
     geometry <- sf::st_as_sfc(geometry)
   }
@@ -31,7 +34,8 @@ geometry_to_grid <- function(geometry, size, ...) {
         XY <- x %>%
           sf::st_sfc() %>%
           sf::st_as_sf() %>%
-          stars::st_rasterize(grid, ...) %>%
+          stars::st_rasterize(grid,
+                              options = options, ...) %>%
           sf::st_as_sf(as_points = TRUE) %>%
           sf::st_coordinates() %>%
           tibble::as_tibble()
@@ -86,6 +90,12 @@ st_bbox.grid <- function(obj, ...) {
             ymax = max(XY$Y_max)), ...)
 }
 
+#' @export
+st_bbox.tbl_grid <- function(obj, ...) {
+  obj <- obj[[grid_column(obj)]]
+  st_bbox(obj)
+}
+
 #' @importFrom sf st_as_sfc
 #' @export
 st_as_sfc.grid <- function(x,
@@ -127,37 +137,15 @@ st_as_sfc.grid <- function(x,
     sf::st_set_crs(crs)
 }
 
-#' Converting data frame containing grid square codes to sf
-#'
-#' @param x A data frame.
-#' @param as_points Return the center points of the grids or not?
-#' @param crs Coordinate reference system.
-#' @param grid_column_name A scalar character.
-#' @param ... passed on to [sf::st_as_sf()].
-#'
-#' @return A \code{sf} object.
-#'
+#' @importFrom sf st_as_sf
 #' @export
-grid_as_sf <- function(x,
-                       as_points = FALSE,
-                       crs = sf::NA_crs_,
-                       grid_column_name = NULL, ...) {
-  if (is_grid(x)) {
-    x <- tibble::tibble(grid = x)
-    grid_column_name <- "grid"
-  }
-  stopifnot(is.data.frame(x))
-
-  if (is.null(grid_column_name)) {
-    i <- x %>%
-      purrr::map_lgl(is_grid)
-    grid_column_name <- names(x) %>%
-      vec_slice(i) %>%
-      vec_slice(1L)
-  }
-  grid <- x[[grid_column_name]]
+st_as_sf.tbl_grid <- function(x,
+                              as_points = FALSE,
+                              crs = sf::NA_crs_, ...) {
+  grid <- x[[grid_column(x)]]
 
   x %>%
+    tibble::as_tibble() %>%
     sf::st_set_geometry(grid %>%
                           st_as_sfc(as_points = as_points,
                                     crs = crs)) %>%
@@ -167,9 +155,22 @@ grid_as_sf <- function(x,
 #' @export
 plot.grid <- function(x, y,
                       as_points = FALSE, ...) {
-  stopifnot(missing(y))
+  if (!missing(y)) {
+    warn("`y` is ignored")
+  }
 
   x %>%
     st_as_sfc(as_points = as_points) %>%
     plot(...)
+}
+
+#' @export
+plot.tbl_grid <- function(x, y,
+                          as_points = FALSE, ...) {
+  if (!missing(y)) {
+    warn("`y` is ignored")
+  }
+
+  plot(x[[grid_column(x)]],
+       as_points = as_points, ...)
 }
