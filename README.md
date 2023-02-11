@@ -59,67 +59,107 @@ devtools::install_github("UchidaMizuki/jpgrid")
 
 ``` r
 library(jpgrid)
+library(tidyverse)
 
-library(tibble)
-library(dplyr)
-library(ggplot2)
+JGD2011 <- 6668
 ```
+
+### ジオメトリの地域メッシュコードへの変換
+
+`geometry_to_grid()`により，`sf`オブジェクトを地域メッシュコードに変換することができます．
+また，`grid_as_sf()`により地域メッシュ（`grid`クラス）を含むデータを`sf`オブジェクトに変換できます．
+
+``` r
+geom_chiba <- rnaturalearth::ne_states(country = "japan",
+                                       returnclass = "sf") |> 
+  filter(name == "Chiba")
+grid_chiba <- geometry_to_grid(geom_chiba, "10km") |> 
+  first() |> 
+  grid_as_sf(crs = sf::st_crs(geom_chiba))
+
+grid_chiba |> 
+  ggplot() +
+  geom_sf(data = geom_chiba) +
+  geom_sf(fill = "transparent") +
+  geom_sf_text(aes(label = as.character(grid)),
+               size = 2)
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
+```
+
+<img src="man/figures/README-unnamed-chunk-4-1.png" width="100%" />
+
+また，`grid_city`には，市区町村別の1
+kmメッシュコードが格納されています．
+
+``` r
+grid_city |> 
+  filter(str_starts(city_code, "121")) |> 
+  grid_as_sf(crs = JGD2011) |> 
+  ggplot(aes(fill = as_factor(city_name_ja))) +
+  geom_sf() +
+  scale_fill_brewer("City",
+                    palette = "Set2")
+```
+
+<img src="man/figures/README-unnamed-chunk-5-1.png" width="100%" />
 
 ### 文字列・数値からの地域メッシュコードの生成
 
-文字列・数値から地域メッシュコードを生成するためには`grid_80km()`，`grid_auto()`などの関数を使用します．
+文字列・数値から地域メッシュコードを生成するためには`parse_grid()`を使用します．
 
-- `grid_auto()`関数はメッシュサイズを自動的に決定します．
+- `grid_size = "80km"`のようにメッシュサイズを指定します．
+  - `grid_size = NULL`の場合はメッシュサイズが自動的に決定されます．
 - デフォルト（`strict = TRUE`）では，メッシュコードの桁数が所定の桁数であることを要求します．
 
 ``` r
-library(jpgrid)
-
 x <- c("53394526313", "5339358633", "533945764", "53394611", "523503", "5339", NA)
 
-grid_80km(x)
+parse_grid(x, grid_size = "80km")
 #> <grid_80km[7]>
 #> [1] <NA> <NA> <NA> <NA> <NA> 5339 <NA>
-grid_125m(x)
+parse_grid(x, grid_size = "125m")
 #> <grid_125m[7]>
 #> [1] 53394526313 <NA>        <NA>        <NA>        <NA>        <NA>       
 #> [7] <NA>
-grid_auto(x)
-#> Guessing grid size as `80km`
+parse_grid(x)
+#> Guessing, grid_size = "80km"
 #> <grid_80km[7]>
 #> [1] <NA> <NA> <NA> <NA> <NA> 5339 <NA>
 
-grid_80km(x, strict = FALSE)
+parse_grid(x, "80km",
+           strict = FALSE)
 #> <grid_80km[7]>
 #> [1] 5339 5339 5339 5339 5235 5339 <NA>
-grid_125m(x, strict = FALSE)
+parse_grid(x, "125m",
+           strict = FALSE)
 #> <grid_125m[7]>
 #> [1] 53394526313 <NA>        <NA>        <NA>        <NA>        <NA>       
 #> [7] <NA>
-grid_auto(x, strict = FALSE)
-#> Guessing grid size as `80km`
+parse_grid(x, 
+           strict = FALSE)
+#> Guessing, grid_size = "80km"
 #> <grid_80km[7]>
 #> [1] 5339 5339 5339 5339 5235 5339 <NA>
 ```
 
 ### 地域メッシュコードのサイズの変換
 
-地域メッシュコードのメッシュサイズを粗くする場合には，`grid_80km()`などの関数を使用します．
-また，`grid_subdivide()`関数により，地域メッシュコードの細分化を行います．
+地域メッシュコードのメッシュサイズを粗くする場合には，`grid_convert()`を使用します．
+また，`grid_subdivide()`により，地域メッシュコードの細分化を行います．
 
-- `grid_subdivide()`は元のメッシュに含まれるメッシュを要素にもつリストを出力します．
+- `grid_subdivide()`は，元のメッシュに含まれるメッシュを要素にもつリストを出力します．
 - 500 mメッシュ・100 mメッシュ間の変換に対応しています．
 
 ``` r
-grid500m <- grid_500m("533945764")
+grid_500m <- parse_grid("533945764", "500m")
 
-grid_1km(grid500m)
+grid_convert(grid_500m, "1km")
 #> <grid_1km[1]>
 #> [1] 53394576
 
-grid100m <- grid_subdivide(grid500m,
-                           size = "100m")
-grid100m
+grid_100m <- grid_subdivide(grid_500m, "100m")
+grid_100m
 #> [[1]]
 #> <grid_100m[25]>
 #>  [1] 5339457655 5339457665 5339457675 5339457685 5339457695 5339457656
@@ -128,43 +168,46 @@ grid100m
 #> [19] 5339457688 5339457698 5339457659 5339457669 5339457679 5339457689
 #> [25] 5339457699
 
-tibble(grid100m = grid100m[[1]]) |> 
-  as_tbl_grid() |> 
-  sf::st_as_sf() |> 
+tibble(grid_100m = grid_100m[[1]]) |> 
+  grid_as_sf(crs = JGD2011) |>  
   ggplot() +
   geom_sf() +
-  geom_sf_text(aes(label = grid100m))
-#> Don't know how to automatically pick scale for object of type
-#> <grid_100m/grid/vctrs_rcrd/vctrs_vctr>. Defaulting to continuous.
+  geom_sf_text(aes(label = as.character(grid_100m)))
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
 ```
 
-<img src="man/figures/README-unnamed-chunk-5-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-7-1.png" width="100%" />
 
 ### 経度・緯度から地域メッシュコードへの変換
 
-`XY_to_grid()`関数は，経度・緯度を地域メッシュコードに変換します．
+`coords_to_grid()`は，経度・緯度を地域メッシュコードに変換します．
 
 ``` r
 tibble(X = c(139.7008, 135.4375), # 経度
        Y = c(35.68906, 34.70833)) |>  # 緯度
-  mutate(grid100m = XY_to_grid(X, Y, size = "100m"),
-         grid125m = XY_to_grid(X, Y, size = "125m")) |> 
+  mutate(grid_100m = coords_to_grid(X, Y, "100m"),
+         grid_125m = coords_to_grid(X, Y, "125m")) |> 
   knitr::kable()
 ```
 
-|        X |        Y | grid100m   | grid125m    |
+|        X |        Y | grid_100m  | grid_125m   |
 |---------:|---------:|:-----------|:------------|
 | 139.7008 | 35.68906 | 5339452660 | 53394526313 |
 | 135.4375 | 34.70833 | 5235034499 | 52350344444 |
 
 ### 地域メッシュコードから経度・緯度への変換
 
-`grid_to_XY()`関数は，地域メッシュコードを経度・緯度に変換します．
+`grid_to_coords()`は，地域メッシュコードを経度・緯度に変換します．
 
 ``` r
 tibble(grid = grid_100m(c("5339452660", "5235034590"))) |> 
-  mutate(grid_to_XY(grid)) |> 
+  mutate(grid_to_coords(grid)) |> 
   knitr::kable()
+#> Warning: `grid_100m()` was deprecated in jpgrid 0.4.0.
+#> ℹ Please use `parse_grid()` or `grid_convert()`
+#> ℹ The deprecated feature was likely used in the jpgrid package.
+#>   Please report the issue at <]8;;https://github.com/UchidaMizuki/jpgrid/issueshttps://github.com/UchidaMizuki/jpgrid/issues]8;;>.
 ```
 
 | grid       |        X |        Y |
@@ -180,62 +223,71 @@ tibble(grid = grid_100m(c("5339452660", "5235034590"))) |>
 - `moore = FALSE`でノイマン近傍での算出が可能
 
 ``` r
-neighbor <- grid_10km("644142") |> 
+neighbor <- parse_grid("644142", "10km") |> 
   grid_neighbor(n = c(0:2),
                 simplify = FALSE)
 
 neighbor[[1]] |> 
-  as_tbl_grid() |> 
-  sf::st_as_sf() |> 
+  grid_as_sf(crs = JGD2011) |> 
   
   ggplot(aes(fill = as.factor(n))) +
   geom_sf() +
-  geom_sf_text(aes(label = grid_neighbor))
-#> Don't know how to automatically pick scale for object of type
-#> <grid_10km/grid/vctrs_rcrd/vctrs_vctr>. Defaulting to continuous.
+  geom_sf_text(aes(label = as.character(grid_neighbor)))
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
+
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
+
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
 ```
 
-<img src="man/figures/README-unnamed-chunk-8-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-10-1.png" width="100%" />
 
 ``` r
-neighbor_neumann <- grid_10km("644142") |> 
+neighbor_neumann <- parse_grid("644142", "10km") |> 
   grid_neighbor(n = c(0:2),
                 simplify = F,
                 moore = F)
 
 neighbor_neumann[[1]] |> 
-  as_tbl_grid() |> 
-  sf::st_as_sf() |> 
+  grid_as_sf(crs = JGD2011) |> 
   ggplot(aes(fill = as.factor(n))) +
   geom_sf() +
-  geom_sf_text(aes(label = grid_neighbor))
-#> Don't know how to automatically pick scale for object of type
-#> <grid_10km/grid/vctrs_rcrd/vctrs_vctr>. Defaulting to continuous.
+  geom_sf_text(aes(label = as.character(grid_neighbor)))
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
+
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
+
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
 ```
 
-<img src="man/figures/README-unnamed-chunk-9-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-11-1.png" width="100%" />
 
 ### メッシュ間の線分描画
 
 `grid_line()`関数により，メッシュ間の線分上に存在するメッシュを抽出します．
 
 ``` r
-grid_from <- grid_80km(c("6441", "5339"))
-grid_to <- grid_80km(c("5237", "5235"))
+grid_from <- parse_grid(c("6441", "5339"), "80km")
+grid_to <- parse_grid(c("5237", "5235"), "80km")
 
 line <- grid_line(grid_from, grid_to)
 
 tibble::tibble(grid = line[[1]]) |> 
-  as_tbl_grid() |> 
-  sf::st_as_sf() |> 
+  grid_as_sf(crs = JGD2011) |> 
   ggplot() +
   geom_sf() +
-  geom_sf_text(aes(label = grid))
-#> Don't know how to automatically pick scale for object of type
-#> <grid_80km/grid/vctrs_rcrd/vctrs_vctr>. Defaulting to continuous.
+  geom_sf_text(aes(label = as.character(grid)))
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
 ```
 
-<img src="man/figures/README-unnamed-chunk-10-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-12-1.png" width="100%" />
 
 メッシュの`list`を与えることで複数メッシュを通る場合に対応可能です．
 
@@ -243,24 +295,23 @@ tibble::tibble(grid = line[[1]]) |>
 - `skip_na = TRUE`で`NA`をスキップします．
 
 ``` r
-grid_1 <- grid_80km(c("6441", "5339", NA, "5250"))
-grid_2 <- grid_80km(c("6439", "5211", "4013", "6635"))
+grid_1 <- parse_grid(c("6441", "5339", NA, "5250"), "80km")
+grid_2 <- parse_grid(c("6439", "5211", "4013", "6635"), "80km")
 
 line <- grid_line(list(grid_1, grid_2), 
                   close = TRUE,
                   skip_na = TRUE)
 
-tibble::tibble(grid = line[[1]]) %>% 
-  as_tbl_grid() |> 
-  sf::st_as_sf() |> 
+tibble::tibble(grid = line[[1]]) |> 
+  grid_as_sf(crs = JGD2011) |> 
   ggplot() +
   geom_sf() +
-  geom_sf_text(aes(label = grid))
-#> Don't know how to automatically pick scale for object of type
-#> <grid_80km/grid/vctrs_rcrd/vctrs_vctr>. Defaulting to continuous.
+  geom_sf_text(aes(label = as.character(grid)))
+#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
+#> give correct results for longitude/latitude data
 ```
 
-<img src="man/figures/README-unnamed-chunk-11-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-13-1.png" width="100%" />
 
 ### メッシュ間距離の算出
 
@@ -269,8 +320,8 @@ tibble::tibble(grid = line[[1]]) %>%
 - `grid_line()`と同様にメッシュの`list`で経路距離を算出可能です．
 
 ``` r
-grid_from <- grid_80km(c("6441", "5339"))
-grid_to <- grid_80km(c("5237", "5235"))
+grid_from <- parse_grid(c("6441", "5339"), "80km")
+grid_to <- parse_grid(c("5237", "5235"), "80km")
 
 distance <- grid_distance(grid_from, grid_to)
 
@@ -282,13 +333,12 @@ print(distance)
 ### その他
 
 - `grid_move()`関数により，東西南北方向の地域メッシュコードを算出可能です．
-- `sf::st_as_sfc`関数により`sfc`ジオメトリを出力可能です．
 - 80kmメッシュの桁が負や三桁以上になる範囲外のメッシュについては，当該コードを`<-1>`，`<123>`のように表示し，既存メッシュと明確に区別できるようにしています．
 
 ## jpmeshとの処理速度の比較
 
 本パッケージのメッシュ・緯度経度間の変換速度は，jpmeshパッケージと比べて数十～数百倍ほど高速です．
 
-<img src="man/figures/README-unnamed-chunk-13-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-15-1.png" width="100%" />
 
-<img src="man/figures/README-unnamed-chunk-14-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-16-1.png" width="100%" />

@@ -4,22 +4,8 @@
 #'
 #' @import vctrs
 #' @import rlang
-#' @importFrom magrittr %>%
+#' @importFrom cli cli_abort cli_inform cli_vec
 #' @importFrom pillar tbl_sum
 #'
 #' @name jpgrid
 "_PACKAGE"
-
-#' @name grid
-#' @param grid A `grid` vector.
-NULL
-
-#' @name grid_to
-#' @param grid A `grid` vector or a list of `grid` vector.
-#' @param grid_to A `grid` vector.
-#' @param close Should the path of each element be closed when `grid` is a list?
-NULL
-
-#' @name size
-#' @param size A grid size.
-NULL

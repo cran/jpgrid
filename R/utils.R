@@ -1,21 +1,28 @@
-size_match <- function(size) {
-  if (inherits(size, "units")) {
-    size <- size %>%
-      units::set_units("m") %>%
+grid_size_match <- function(grid_size) {
+  if (is_missing(grid_size)) {
+    cli_abort("{.arg grid_size} must not be missing.")
+  } else if (inherits(grid_size, "units")) {
+    grid_size <- grid_size |>
+      units::set_units("m") |>
       units::drop_units()
-  } else if (is.character(size)) {
-    size <- switch(size,
-                   `80km` = 80000L,
-                   `10km` = 10000L,
-                   `1km` = 1000L,
-                   `500m` = 500L,
-                   `250m` = 250L,
-                   `125m` = 125L,
-                   `100m` = 100L)
+  } else if (is.character(grid_size)) {
+    grid_size <- switch(grid_size,
+                        `80km` = 80000L,
+                        `10km` = 10000L,
+                        `1km` = 1000L,
+                        `500m` = 500L,
+                        `250m` = 250L,
+                        `125m` = 125L,
+                        `100m` = 100L,
+                        NA_integer_)
   }
 
-  stopifnot(size %in% c(80000L, 10000L, 1000L, 500L, 250L, 125L, 100L))
-  size
+  if (!grid_size %in% c(80000L, 10000L, 1000L, 500L, 250L, 125L, 100L)) {
+    sizes <- cli_vec(c("80km", "10km", "1km", "500m", "250m", "125m", "100m"),
+                     style = list("vec-last" = " or "))
+    cli_abort("{.arg grid_size} must {.val {sizes}}")
+  }
+  grid_size
 }
 
 grid_size <- function(grid) {
@@ -30,8 +37,8 @@ grid_size <- function(grid) {
 }
 
 code_80km_to_number <- function(code) {
-  code %>%
-    stringr::str_extract("(?<=^<?)\\-?\\d+(?=>?$)") %>%
+  code |>
+    stringr::str_extract("(?<=^<?)\\-?\\d+(?=>?$)") |>
     as.integer()
 }
 
@@ -43,7 +50,7 @@ code_to_number <- function(code, number_min, number_max) {
 }
 
 number_to_code_80km <- function(number) {
-  code <- number %>%
+  code <- number |>
     stringr::str_pad(2L,
                      side = "left",
                      pad = "0")
@@ -68,8 +75,4 @@ code_2x2_to_X <- function(code_2x2) {
 code_2x2_to_Y <- function(code_2x2) {
   dplyr::case_when(code_2x2 %in% c(1L, 2L) ~ 0L,
                    code_2x2 %in% c(3L, 4L) ~ 1L)
-}
-
-grid_column <- function(x) {
-  row.names(attr(x, "sticky_cols"))
 }

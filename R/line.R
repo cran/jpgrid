@@ -5,21 +5,28 @@
 #' If `grid` is a list, The path lines for each element in the grid will be
 #' drawn.
 #'
-#' @inheritParams grid_to
+#' @param grid A `grid` vector or a list of `grid` vector.
+#' @param grid_to A `grid` vector.
+#' @param close Should the path of each element be closed when `grid` is a list?
 #' @param skip_na Should skip the `NA` grid and connects the paths? `FALSE` by
 #' default.
 #'
 #' @return A list of `grid` vectors.
 #'
 #' @export
-grid_line <- function(grid, grid_to,
+grid_line <- function(grid,
+                      grid_to = NULL,
                       close = FALSE,
                       skip_na = FALSE) {
   if (is_grid(grid)) {
-    stopifnot(is_grid(grid_to))
+    if (!is_grid(grid_to)) {
+      cli_abort("{.arg grid_to} must be a vector with type {.cls grid}.")
+    }
 
-    size <- grid_size(grid)
-    stopifnot(size == grid_size(grid_to))
+    grid_size <- grid_size(grid)
+    if (grid_size != grid_size(grid_to)) {
+      cli_abort("The grid size of {.arg grid} and {.arg grid_to} must be the same.")
+    }
 
     grid <- tibble::tibble(grid = grid,
                            grid_to = grid_to)
@@ -43,10 +50,10 @@ grid_line <- function(grid, grid_to,
     sx <- dplyr::if_else(x < x_to, 1L, -1L)
     sy <- dplyr::if_else(y < y_to, 1L, -1L)
 
-    line$line <- list(x, y, x_to, y_to, dx, dy, err, sx, sy) %>%
-      purrr::pmap(function(x, y, x_to, y_to, dx, dy, err, sx, sy) {
+    line$line <- list(x, y, x_to, y_to, dx, dy, err, sx, sy) |>
+      purrr::pmap(\(x, y, x_to, y_to, dx, dy, err, sx, sy) {
         if (is.na(x) || is.na(y) || is.na(x_to) || is.na(y_to)) {
-          new_grid(size = size,
+          new_grid(grid_size = grid_size,
                    n_X = NA_integer_,
                    n_Y = NA_integer_)
         } else {
@@ -66,24 +73,28 @@ grid_line <- function(grid, grid_to,
             xs <- c(xs, x)
             ys <- c(ys, y)
           }
-          new_grid(size = size,
+          new_grid(grid_size = grid_size,
                    n_X = xs,
                    n_Y = ys)
         }
       })
 
-    grid %>%
+    grid |>
       dplyr::left_join(line,
-                       by = c("grid", "grid_to")) %>%
+                       by = c("grid", "grid_to")) |>
       purrr::chuck("line")
   } else {
-    stopifnot(is.list(grid),
-              missing(grid_to))
+    if (!is.list(grid)) {
+      cli_abort("{.arg grid} must be a {.cls list}.")
+    }
+    if (!is.null(grid_to)) {
+      cli_abort("If {.arg grid} is a {.cls list}, {.arg grid_to} must be {.var NULL}.")
+    }
 
-    grid %>%
-      purrr::modify(function(grid) {
+    grid |>
+      purrr::modify(\(grid) {
         if (skip_na) {
-          grid <- grid %>%
+          grid <- grid |>
             vec_slice(!is.na(grid))
         }
 
@@ -94,8 +105,8 @@ grid_line <- function(grid, grid_to,
           grid <- utils::head(grid, -1L)
         }
 
-        grid_line(grid, grid_to) %>%
-          purrr::reduce(c)
+        grid_line(grid, grid_to) |>
+          purrr::list_c()
       })
   }
 }

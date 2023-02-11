@@ -1,39 +1,41 @@
 #' Conversion between grid square codes and coordinates (longitude and latitude)
 #'
-#' @name XY
+#' @name coords
 NULL
 
-#' @rdname XY
+#' @rdname coords
 #'
 #' @param X A numeric vector of longitude.
 #' @param Y A numeric vector of latitude.
-#' @param size A grid size.
+#' @param grid_size A grid size.
 #'
-#' @return `XY_to_grid` returns a `grid` vector.
+#' @return `coords_to_grid()` returns a `grid` vector.
 #'
 #' @export
-XY_to_grid <- function(X, Y, size) {
-  size <- size_match(size)
+coords_to_grid <- function(X, Y, grid_size) {
+  grid_size <- grid_size_match(grid_size)
 
-  length_X <- size / 80000L
+  length_X <- grid_size / 80000L
   length_Y <- length_X / 1.5
 
-  new_grid(size = size,
+  new_grid(grid_size = grid_size,
            n_X = (X - 100) %/% length_X,
            n_Y = Y %/% length_Y)
 }
 
-#' @rdname XY
+#' @rdname coords
 #'
 #' @param grid A `grid` class vector.
 #' @param center Should the center point of the grid be returned? Otherwise the
 #' end points will be returned. `TRUE` by default.
 #'
-#' @return `grid_to_XY` returns a `tbl_df`.
+#' @return `grid_to_coords()` returns a `tbl_df`.
 #'
 #' @export
-grid_to_XY <- function(grid, center = TRUE) {
-  stopifnot(is_grid(grid))
+grid_to_coords <- function(grid, center = TRUE) {
+  if (!is_grid(grid)) {
+    cli_abort("{.arg grid} must be a vector with type {.cls grid}.")
+  }
 
   length_X <- grid_size(grid) / 80000L
   length_Y <- length_X / 1.5
@@ -45,10 +47,10 @@ grid_to_XY <- function(grid, center = TRUE) {
     tibble::tibble(X = 100 + length_X * (n_X + .5),
                    Y = length_Y * (n_Y + .5))
   } else {
-    XY <- tibble::tibble(X_min = 100 + length_X * n_X,
-                         Y_min = length_Y * n_Y)
-    XY$X_max <- XY$X_min + length_X
-    XY$Y_max <- XY$Y_min + length_Y
-    XY
+    coords <- tibble::tibble(X_min = 100 + length_X * n_X,
+                             Y_min = length_Y * n_Y)
+    coords$X_max <- coords$X_min + length_X
+    coords$Y_max <- coords$Y_min + length_Y
+    coords
   }
 }
