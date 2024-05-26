@@ -1,16 +1,20 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# jpgrid <a href="https://uchidamizuki.github.io/jpgrid/"><img src="man/figures/logo.png" align="right" height="139" /></a>
+# jpgrid <a href="https://uchidamizuki.github.io/jpgrid/"><img src="man/figures/logo.png" align="right" height="139"/></a>
 
 <!-- badges: start -->
 
 [![CRAN
 status](https://www.r-pkg.org/badges/version/jpgrid)](https://CRAN.R-project.org/package=jpgrid)
+[![R-CMD-check](https://github.com/UchidaMizuki/jpgrid/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/UchidaMizuki/jpgrid/actions/workflows/R-CMD-check.yaml)
+[![Codecov test
+coverage](https://codecov.io/gh/UchidaMizuki/jpgrid/branch/main/graph/badge.svg)](https://app.codecov.io/gh/UchidaMizuki/jpgrid?branch=main)
+
 <!-- badges: end -->
 
-*[The English version of the README is
-here.](https://github.com/UchidaMizuki/jpgrid/blob/main/README.en.md)*
+[*The English version of the README is
+here.*](https://github.com/UchidaMizuki/jpgrid/blob/main/README.en.md)
 
 jpgridは，日本産業規格JIS X 0410
 [地域メッシュコード](https://www.jisc.go.jp/app/jis/general/GnrJISNumberNameSearchList?show&jisStdNo=X0410)
@@ -83,17 +87,15 @@ grid_chiba |>
   geom_sf(fill = "transparent") +
   geom_sf_text(aes(label = as.character(grid)),
                size = 2)
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
 ```
 
 <img src="man/figures/README-unnamed-chunk-4-1.png" width="100%" />
 
-また，`grid_city`には，市区町村別の1
+また，`grid_city_2020`には，市区町村別の1
 kmメッシュコードが格納されています．
 
 ``` r
-grid_city |> 
+grid_city_2020 |> 
   filter(str_starts(city_code, "121")) |> 
   grid_as_sf(crs = JGD2011) |> 
   ggplot(aes(fill = as_factor(city_name_ja))) +
@@ -118,24 +120,39 @@ x <- c("53394526313", "5339358633", "533945764", "53394611", "523503", "5339", N
 parse_grid(x, grid_size = "80km")
 #> <grid_80km[7]>
 #> [1] <NA> <NA> <NA> <NA> <NA> 5339 <NA>
+```
+
+``` r
 parse_grid(x, grid_size = "125m")
 #> <grid_125m[7]>
 #> [1] 53394526313 <NA>        <NA>        <NA>        <NA>        <NA>       
 #> [7] <NA>
+```
+
+``` r
 parse_grid(x)
 #> Guessing, grid_size = "80km"
 #> <grid_80km[7]>
 #> [1] <NA> <NA> <NA> <NA> <NA> 5339 <NA>
+```
+
+``` r
 
 parse_grid(x, "80km",
            strict = FALSE)
 #> <grid_80km[7]>
 #> [1] 5339 5339 5339 5339 5235 5339 <NA>
+```
+
+``` r
 parse_grid(x, "125m",
            strict = FALSE)
 #> <grid_125m[7]>
 #> [1] 53394526313 <NA>        <NA>        <NA>        <NA>        <NA>       
 #> [7] <NA>
+```
+
+``` r
 parse_grid(x, 
            strict = FALSE)
 #> Guessing, grid_size = "80km"
@@ -157,6 +174,9 @@ grid_500m <- parse_grid("533945764", "500m")
 grid_convert(grid_500m, "1km")
 #> <grid_1km[1]>
 #> [1] 53394576
+```
+
+``` r
 
 grid_100m <- grid_subdivide(grid_500m, "100m")
 grid_100m
@@ -167,14 +187,15 @@ grid_100m
 #> [13] 5339457677 5339457687 5339457697 5339457658 5339457668 5339457678
 #> [19] 5339457688 5339457698 5339457659 5339457669 5339457679 5339457689
 #> [25] 5339457699
+```
+
+``` r
 
 tibble(grid_100m = grid_100m[[1]]) |> 
   grid_as_sf(crs = JGD2011) |>  
   ggplot() +
   geom_sf() +
   geom_sf_text(aes(label = as.character(grid_100m)))
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
 ```
 
 <img src="man/figures/README-unnamed-chunk-7-1.png" width="100%" />
@@ -201,13 +222,9 @@ tibble(X = c(139.7008, 135.4375), # 経度
 `grid_to_coords()`は，地域メッシュコードを経度・緯度に変換します．
 
 ``` r
-tibble(grid = grid_100m(c("5339452660", "5235034590"))) |> 
+tibble(grid = parse_grid(c("5339452660", "5235034590"), "100m")) |> 
   mutate(grid_to_coords(grid)) |> 
   knitr::kable()
-#> Warning: `grid_100m()` was deprecated in jpgrid 0.4.0.
-#> ℹ Please use `parse_grid()` or `grid_convert()`
-#> ℹ The deprecated feature was likely used in the jpgrid package.
-#>   Please report the issue at <]8;;https://github.com/UchidaMizuki/jpgrid/issueshttps://github.com/UchidaMizuki/jpgrid/issues]8;;>.
 ```
 
 | grid       |        X |        Y |
@@ -217,56 +234,63 @@ tibble(grid = grid_100m(c("5339452660", "5235034590"))) |>
 
 ### 隣接メッシュの算出
 
-`grid_neighbor()`関数は，隣接するメッシュを算出します．
+`grid_neighborhood()`関数は，隣接するメッシュを算出します．
 
 - `n`を指定することでn次隣接メッシュの算出が可能
-- `moore = FALSE`でノイマン近傍での算出が可能
+- `type = "von_neumann"`でノイマン近傍,
+  `type = "moore"`でムーア近傍を指定可能
 
 ``` r
-neighbor <- parse_grid("644142", "10km") |> 
-  grid_neighbor(n = c(0:2),
-                simplify = FALSE)
+neighborhood <- parse_grid("644142", "10km") |> 
+  grid_neighborhood(n = c(0:2),
+                    type = "von_neumann",
+                    simplify = FALSE)
 
-neighbor[[1]] |> 
+neighborhood[[1]] |> 
   grid_as_sf(crs = JGD2011) |> 
   
   ggplot(aes(fill = as.factor(n))) +
   geom_sf() +
-  geom_sf_text(aes(label = as.character(grid_neighbor)))
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
-
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
-
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
+  geom_sf_text(aes(label = as.character(grid_neighborhood)))
 ```
 
 <img src="man/figures/README-unnamed-chunk-10-1.png" width="100%" />
 
 ``` r
-neighbor_neumann <- parse_grid("644142", "10km") |> 
-  grid_neighbor(n = c(0:2),
-                simplify = F,
-                moore = F)
+neighborhood <- parse_grid("644142", "10km") |> 
+  grid_neighborhood(n = c(0:2),
+                    type = "moore",
+                    simplify = FALSE)
 
-neighbor_neumann[[1]] |> 
+neighborhood[[1]] |> 
   grid_as_sf(crs = JGD2011) |> 
   ggplot(aes(fill = as.factor(n))) +
   geom_sf() +
-  geom_sf_text(aes(label = as.character(grid_neighbor)))
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
-
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
-
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
+  geom_sf_text(aes(label = as.character(grid_neighborhood)))
 ```
 
 <img src="man/figures/README-unnamed-chunk-11-1.png" width="100%" />
+
+### メッシュの連結成分を取得
+
+`grid_components()`関数は，メッシュの連結成分を算出し，クラスターIDを返します．
+
+- `grid_neighborhood()`関数と同じく`n`と`type`を指定できます．
+
+``` r
+set.seed(1234)
+
+grid_city_2020 |> 
+  filter(str_starts(city_code, "121")) |> 
+  slice_sample(prop = 0.5) |> 
+  mutate(cluster = grid_components(grid,
+                                   type = "von_neumann")) |> 
+  grid_as_sf(crs = JGD2011) |> 
+  ggplot(aes(fill = fct_shuffle(as_factor(cluster)))) +
+  geom_sf(show.legend = FALSE) 
+```
+
+<img src="man/figures/README-unnamed-chunk-12-1.png" width="100%" />
 
 ### メッシュ間の線分描画
 
@@ -283,11 +307,9 @@ tibble::tibble(grid = line[[1]]) |>
   ggplot() +
   geom_sf() +
   geom_sf_text(aes(label = as.character(grid)))
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
 ```
 
-<img src="man/figures/README-unnamed-chunk-12-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-13-1.png" width="100%" />
 
 メッシュの`list`を与えることで複数メッシュを通る場合に対応可能です．
 
@@ -307,11 +329,9 @@ tibble::tibble(grid = line[[1]]) |>
   ggplot() +
   geom_sf() +
   geom_sf_text(aes(label = as.character(grid)))
-#> Warning in st_point_on_surface.sfc(sf::st_zm(x)): st_point_on_surface may not
-#> give correct results for longitude/latitude data
 ```
 
-<img src="man/figures/README-unnamed-chunk-13-1.png" width="100%" />
+<img src="man/figures/README-unnamed-chunk-14-1.png" width="100%" />
 
 ### メッシュ間距離の算出
 
@@ -327,7 +347,7 @@ distance <- grid_distance(grid_from, grid_to)
 
 print(distance)
 #> Units: [m]
-#> [1] 953014.2 371081.9
+#> [1] 954045.5 370318.1
 ```
 
 ### その他
@@ -339,6 +359,6 @@ print(distance)
 
 本パッケージのメッシュ・緯度経度間の変換速度は，jpmeshパッケージと比べて数十～数百倍ほど高速です．
 
-<img src="man/figures/README-unnamed-chunk-15-1.png" width="100%" />
+<img src="man/figures/README-microbenchmark-coords-to-grid.png" width="100%"/>
 
-<img src="man/figures/README-unnamed-chunk-16-1.png" width="100%" />
+<img src="man/figures/README-microbenchmark-grid-to-coords.png" width="100%"/>
